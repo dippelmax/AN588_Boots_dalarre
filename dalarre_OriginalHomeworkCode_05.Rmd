@@ -75,19 +75,28 @@ How does the latter compare to the 95% CI estimated from your entire dataset?
 s1 <- NULL
 s2 <- NULL
 for (i in 1:1000) {
-    s1[[i]] <- sample(f$hr, size = 100, replace = TRUE)
-    s2[[i]] <- sample(f$bmfm, size = 100, replace = TRUE)
+    s1[[i]] <- sample(f$hr, size = 200, replace = TRUE)
+    s2[[i]] <- sample(f$bmfm, size = 200, replace = TRUE)
 }
 ## First, I sample 1000 times from each variable, with a sample size of 100
 
 
 mm <- NULL
+beta1 <- NULL
+beta0 <- NULL
 for (i in 1:1000) {
   mm[[i]] <- lmodel2(s1[[i]]~s2[[i]],data = f, range.y = "interval", range.x = "relative")
+  beta1[i] <- mm[[i]]$regression.results$Slope[1]
+  beta0[i] <- mm[[i]]$regression.results$Intercept[1]
 }
+## Then I run a for loop for doing the model 2 regression of each sample. I get the warning that "No permutation test will be performed" on each regression because if I add a permutation number the loop takes forever to run. I also get all the slopes and intercepts stored as vectors in the variables beta1 and beta0.
+
+```
+
+```{r}
+
 mm[[1]]
 mm[[1000]]
-## Then I run a for loop for doing the model 2 regression of each sample. I get the warning that "No permutation test will be performed" on each regression because if I add a permutation number the loop takes forever to run.
 
 mmi <- NULL
 for (i in 1:1000) {
@@ -98,6 +107,32 @@ mmi[[1000]]
 ## Here I do a test to see if there is a notable difference between using linear model 1 or 2, and the results are pretty much the same in both of them.
 
 ```
+
+```{r}
+
+sd0 <- sd(beta0) ## Calculates the estimation of the standard error for β0 coefficient as the standard deviation of its sampling distribution 
+sd1 <- sd(beta1) ## Calculates the estimation of the standard error for β1 coefficient as the standard deviation of its sampling distribution 
+
+
+## Next I calculate the SE and 95% CIs of the coefficients using the whole dataset for comparing them to the ones obtained by bootstrapping, and I collect all the data in a data frame called "table" to have an easy way to compare.
+
+mi <- lm(hr ~ bmfm)
+u <- coef(summary(mi))
+u <- data.frame(unlist(u))
+colnames(u) <- c("Estimate", "SE", "t", "p") ## This contains the data about the coefficients calculated with lm()
+
+ci <- confint(mi, level = 0.95)  # This calculates the CIs for the slope (β1) and the intercept (β0)
+
+t <- data.frame(Bootstrapping_SE = c(sd0, sd1), Bootstrapping_2.5 = c(quantile(beta0, 0.025),quantile(beta1, 0.025)), Bootstrapping_97.5 = c(quantile(beta0, 0.975),quantile(beta1, 0.975))) ## This creates a data frame with all the data obtained by bootstrapping
+
+table <- cbind(u[,1:2],t,ci) ## This gathers the different data frames into a single one
+table
+
+## We can see that the standard errors aren't the same but are relatively close. The ones calculated by bootstrapping are higher. 
+## However, the CIs are totally different. I don't know if I have done something wrong calculating them or if this result is normal.
+
+```
+
 
 
 
