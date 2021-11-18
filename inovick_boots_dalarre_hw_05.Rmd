@@ -1,0 +1,141 @@
+---
+title: "inovick_boots_dalarre_hw_05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+##Homework 05
+
+#[1] Using the “KamilarAndCooperData.csv” dataset, run a linear regression looking at log(HomeRange_km2) in relation to log(Body_mass_female_mean) and report your β coeffiecients (slope and intercept).
+
+```{r}
+
+library(curl)
+f <- curl("https://raw.githubusercontent.com/fuzzyatelin/fuzzyatelin.github.io/master/AN588_Fall21/KamilarAndCooperData.csv")
+d <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(d)
+names(d)
+## This loads the data
+
+```
+
+```{r}
+library(lmodel2) ## Load the Model II regression package
+
+hr <- log(d$HomeRange_km2)
+bmfm <- log(d$Body_mass_female_mean)
+
+f <- cbind(d, hr, bmfm)
+
+m <- lmodel2(hr ~ bmfm, data = f, range.y = "interval", range.x = "relative", 
+    nperm = 1000)
+m
+
+b1 <- m$regression.results$Slope[1]
+b1 ##Slope
+
+b0 <- m$regression.results$Intercept[1]
+b0 ##Intercept
+
+```
+#Isabel: I didn't realize this was a model II regression. I just used the lm function. I will try this in my final. Also whre did you specify the CI parameters? They are the correct ones, I just couldn't tell in your code
+
+#[2] Then, use bootstrapping to sample from your data 1000 times with replacement, each time fitting the same model and calculating the same coefficients. This generates a sampling distribution for each β coefficient.
+
+Estimate the standard error for each of your β coefficients as the standard deviation of the sampling distribution from your bootstrap and determine the 95% CI for each of your β coefficients based on the appropriate quantiles from your sampling distribution.
+
+How does the former compare to the SE estimated from your entire dataset using the formula for standard error implemented in lm()?
+
+How does the latter compare to the 95% CI estimated from your entire dataset?
+
+```{r}
+s1 <- NULL
+s2 <- NULL
+for (i in 1:1000) {
+    s1[[i]] <- sample(f$hr, size = 200, replace = TRUE)
+    s2[[i]] <- sample(f$bmfm, size = 200, replace = TRUE)
+}
+## First, I sample 1000 times from each variable, with a sample size of 100
+
+
+mm <- NULL
+beta1 <- NULL
+beta0 <- NULL
+for (i in 1:1000) {
+  mm[[i]] <- lmodel2(s1[[i]]~s2[[i]],data = f, range.y = "interval", range.x = "relative")
+  beta1[i] <- mm[[i]]$regression.results$Slope[1]
+  beta0[i] <- mm[[i]]$regression.results$Intercept[1]
+}
+## Then I run a for loop for doing the model 2 regression of each sample. I get the warning that "No permutation test will be performed" on each regression because if I add a permutation number the loop takes forever to run. I also get all the slopes and intercepts stored as vectors in the variables beta1 and beta0.
+
+```
+#Isabel: That happened to me too but with a slightly different error message because I wasn't using a permutation test because I was just using model I regression.
+
+```{r}
+
+mm[[1]]
+mm[[1000]]
+##Isabel: this isn't running for me because it says subscript out of bounds. Whaaaat?
+mmi <- NULL
+for (i in 1:1000) {
+  mmi[[i]] <- lm(s1[[i]]~s2[[i]])
+}
+mmi[[1]]
+mmi[[1000]]
+## Here I do a test to see if there is a notable difference between using linear model 1 or 2, and the results are pretty much the same in both of them.
+
+```
+
+```{r}
+
+sd0 <- sd(beta0) ## Calculates the estimation of the standard error for β0 coefficient as the standard deviation of its sampling distribution 
+sd1 <- sd(beta1) ## Calculates the estimation of the standard error for β1 coefficient as the standard deviation of its sampling distribution 
+
+
+## Next I calculate the SE and 95% CIs of the coefficients using the whole dataset for comparing them to the ones obtained by bootstrapping, and I collect all the data in a data frame called "table" to have an easy way to compare.
+
+mi <- lm(hr ~ bmfm)
+u <- coef(summary(mi))
+u <- data.frame(unlist(u))
+colnames(u) <- c("Estimate", "SE", "t", "p") ## This contains the data about the coefficients calculated with lm()
+
+ci <- confint(mi, level = 0.95)  # This calculates the CIs for the slope (β1) and the intercept (β0)
+
+t <- data.frame(Bootstrapping_SE = c(sd0, sd1), Bootstrapping_2.5 = c(quantile(beta0, 0.025),quantile(beta1, 0.025)), Bootstrapping_97.5 = c(quantile(beta0, 0.975),quantile(beta1, 0.975))) ## This creates a data frame with all the data obtained by bootstrapping
+
+table <- cbind(u[,1:2],t,ci) ## This gathers the different data frames into a single one
+table
+
+## We can see that the standard errors aren't the same but are relatively close. The ones calculated by bootstrapping are higher. 
+## However, the CIs are totally different. I don't know if I have done something wrong calculating them or if this result is normal.
+##Isabel: Were you using the same confidence level? I could be understanding wrong but it looked like in your first test the CI were at 97.5 and this one is at 95
+```
+
+
+
+
